@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin — ACM Bangalore</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;color:#1e293b;line-height:1.5}
+a{text-decoration:none;color:inherit}
+input,textarea,select,button{font-family:inherit}
+
+/* ── BUTTONS ─────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-primary{background:#0073b7;color:#fff}.btn-primary:hover{background:#005a91}
+.btn-danger {background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-success{background:#16a34a;color:#fff}.btn-success:hover{background:#15803d}
+.btn-ghost  {background:#e2e8f0;color:#374151}.btn-ghost:hover{background:#cbd5e1}
+.btn-sm{padding:6px 12px;font-size:0.8rem}
+.btn-full{width:100%;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── FORM ELEMENTS ───────────────────────── */
+.field{margin-bottom:15px}
+.field label{display:block;font-size:0.82rem;font-weight:600;color:#475569;margin-bottom:5px}
+.field input,.field textarea,.field select{width:100%;padding:10px 13px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;outline:none;transition:border-color .2s;background:#fff;color:#1e293b}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:#0073b7;box-shadow:0 0 0 3px rgba(0,115,183,.1)}
+.field textarea{resize:vertical;min-height:90px}
+.field .hint{font-size:0.76rem;color:#94a3b8;margin-top:4px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.form-actions{display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #f1f5f9}
+
+/* ── LOGIN PAGE ──────────────────────────── */
+#loginPage{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d1b2a 0%,#14334f 100%)}
+.login-wrap{width:100%;max-width:420px;padding:20px}
+.login-card{background:#fff;border-radius:18px;padding:44px 40px;box-shadow:0 25px 60px rgba(0,0,0,.35)}
+.login-logo{display:flex;align-items:center;justify-content:center;margin-bottom:28px}
+.login-logo img{height:48px}
+.login-card h1{text-align:center;font-size:1.45rem;color:#0d1b2a;margin-bottom:6px}
+.login-card p{text-align:center;color:#64748b;font-size:0.87rem;margin-bottom:28px}
+.login-err{color:#dc2626;font-size:0.84rem;margin-top:10px;text-align:center;min-height:20px}
+.setup-box{margin-top:20px;padding:16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;text-align:center}
+.setup-box p{font-size:0.84rem;color:#0369a1;margin-bottom:10px}
+
+/* ── DASHBOARD LAYOUT ────────────────────── */
+#dashPage{display:none;height:100vh;overflow:hidden}
+#dashPage.active{display:flex}
+
+/* Sidebar */
+.sidebar{width:240px;background:#0d1b2a;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-brand img{height:34px}
+.sb-brand span{display:block;font-size:0.75rem;color:rgba(255,255,255,.4);margin-top:5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+.sb-user{padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-user .uname{font-size:.88rem;font-weight:700;color:#fff}
+.sb-user .urole{font-size:.74rem;color:rgba(255,255,255,.4);margin-top:2px}
+.sb-nav{flex:1;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 18px;color:rgba(255,255,255,.6);font-size:.87rem;cursor:pointer;transition:all .18s;border-left:3px solid transparent}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav-item.active{color:#fff;background:rgba(0,115,183,.22);border-left-color:#0073b7}
+.nav-item svg{flex-shrink:0;width:16px;height:16px}
+.sb-bottom{padding:16px 18px;border-top:1px solid rgba(255,255,255,.08)}
+
+/* Main content */
+.main-area{flex:1;overflow-y:auto}
+.sec{display:none;padding:28px 32px;animation:fadeIn .2s ease}
+.sec.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px}
+.sec-head h2{font-size:1.35rem;font-weight:700;color:#0d1b2a}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid #0073b7;transition:box-shadow .2s}
+.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.stat-num{font-size:2rem;font-weight:800;color:#0d1b2a;line-height:1}
+.stat-lbl{font-size:.8rem;color:#64748b;margin-top:5px;font-weight:500}
+
+/* Cards */
+.event-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px;overflow:hidden;border-left:4px solid #0073b7}
+.event-card-head{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px;cursor:pointer;gap:12px}
+.event-card-head:hover{background:#fafafa}
+.ec-title{font-size:.98rem;font-weight:700;color:#0d1b2a}
+.ec-meta{font-size:.8rem;color:#64748b;margin-top:3px}
+.ec-actions{display:flex;gap:6px;flex-shrink:0}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.badge-upcoming{background:#dbeafe;color:#1d4ed8}
+.badge-past{background:#d1fae5;color:#065f46}
+.badge-contact{background:#fef3c7;color:#92400e}
+.badge-membership{background:#ede9fe;color:#5b21b6}
+
+/* Event expand body */
+.event-body{display:none;padding:0 20px 20px;border-top:1px solid #f1f5f9}
+.event-body.open{display:block}
+.ev-tabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid #e2e8f0;padding-top:14px}
+.ev-tab{padding:8px 16px;font-size:.85rem;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .18s}
+.ev-tab.active{color:#0073b7;border-bottom-color:#0073b7}
+.ev-tab-pane{display:none}.ev-tab-pane.active{display:block}
+
+/* Add form panel */
+.add-panel{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:22px 24px;margin-bottom:18px;display:none;border-top:3px solid #16a34a}
+.add-panel.open{display:block}
+.add-panel h3{font-size:1.05rem;color:#0d1b2a;margin-bottom:18px;font-weight:700}
+
+/* Photo grid */
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
+.photo-thumb{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1;background:#e2e8f0}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-del{position:absolute;top:5px;right:5px;background:rgba(220,38,38,.9);color:#fff;border:none;border-radius:6px;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.photo-thumb:hover .photo-del{opacity:1}
+
+/* Upload zone */
+.upload-zone{border:2px dashed #cbd5e1;border-radius:10px;padding:24px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-top:10px;position:relative}
+.upload-zone:hover,.upload-zone.dragover{border-color:#0073b7;background:#f0f9ff}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone svg{margin:0 auto 8px;display:block;color:#94a3b8}
+.upload-zone p{font-size:.84rem;color:#94a3b8}
+.upload-zone .accepted{font-size:.75rem;color:#cbd5e1;margin-top:4px}
+
+/* Submissions table */
+.tbl-wrap{overflow-x:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:.85rem}
+th{text-align:left;padding:11px 14px;font-size:.73rem;text-transform:uppercase;letter-spacing:.07em;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:top;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.td-wrap{white-space:normal;max-width:260px}
+
+/* Admin cards */
+.admin-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.admin-card .uname{font-weight:700;color:#0d1b2a}
+.admin-card .udate{font-size:.8rem;color:#94a3b8;margin-top:3px}
+.admin-card .me-badge{background:#dbeafe;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle}
+.danger-zone{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:18px 20px;margin-top:20px}
+.danger-zone h4{font-size:.95rem;font-weight:700;color:#991b1b;margin-bottom:6px}
+.danger-zone p{font-size:.84rem;color:#b91c1c;margin-bottom:14px}
+
+/* Toast */
+.toast{position:fixed;bottom:22px;right:22px;background:#0d1b2a;color:#fff;padding:12px 20px;border-radius:9px;font-size:.87rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.22);z-index:9999;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;max-width:320px}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{background:#15803d}
+.toast.error{background:#b91c1c}
+
+/* Loading spinner */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Empty state */
+.empty{text-align:center;padding:44px;color:#94a3b8}
+.empty svg{margin:0 auto 12px;display:block;opacity:.25}
+.empty p{font-size:.9rem}
+hr.divider{border:none;border-top:1px solid #e2e8f0;margin:18px 0}
+.text-red{color:#dc2626}
+.text-sm{font-size:.82rem;color:#64748b}
+
+@media(max-width:700px){
+  .sidebar{width:0;overflow:hidden}.main-area{width:100%}
+  .form-row,.form-row3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOGIN PAGE
+══════════════════════════════════════ -->
+<div id="loginPage">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="assets/image1.png" alt="ACM Bangalore"/>
+      </div>
+      <h1>Admin Portal</h1>
+      <p>ACM Bangalore Professional Chapter</p>
+
+      <form id="loginForm">
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="lu" placeholder="Enter username" autocomplete="username" required/>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="lp" placeholder="Enter password" autocomplete="current-password" required/>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+          Sign In
+        </button>
+        <div class="login-err" id="loginErr"></div>
+      </form>
+
+      <!-- First-time setup (shown only when no admins exist) -->
+      <div class="setup-box" id="setupBox" style="display:none">
+        <p>No admin account found. Click below to create the initial admin account.</p>
+        <button class="btn btn-success btn-sm" onclick="firstTimeSetup()">Initialize Admin Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════ -->
+<div id="dashPage">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <img src="assets/image1.png" alt="ACM Bangalore"/>
+      <span>Admin Dashboard</span>
+    </div>
+    <div class="sb-user">
+      <div class="uname" id="sbUsername">—</div>
+      <div class="urole">Administrator</div>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-item active" onclick="showSec('overview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Overview
+      </div>
+      <div class="nav-item" onclick="showSec('upcoming')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Upcoming Events
+      </div>
+      <div class="nav-item" onclick="showSec('past')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Past Events
+      </div>
+      <div class="nav-item" onclick="showSec('gallery')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Gallery
+      </div>
+      <div class="nav-item" onclick="showSec('submissions')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+        Form Submissions
+      </div>
+      <div class="nav-item" onclick="showSec('admins')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Admin Settings
+      </div>
+    </nav>
+    <div class="sb-bottom">
+      <button class="btn btn-ghost btn-full btn-sm" onclick="logout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </button>
+      <div style="margin-top:8px;text-align:center">
+        <a href="index.html" style="font-size:.75rem;color:rgba(255,255,255,.35)" target="_blank">← Back to site</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- OVERVIEW -->
+    <div class="sec active" id="secOverview">
+      <div class="sec-head">
+        <h2>Overview</h2>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-num" id="stUpcoming">—</div><div class="stat-lbl">Upcoming Events</div></div>
+        <div class="stat-card"><div class="stat-num" id="stPast">—</div><div class="stat-lbl">Past Events</div></div>
+        <div class="stat-card"><div class="stat-num" id="stGallery">—</div><div class="stat-lbl">Gallery Photos</div></div>
+        <div class="stat-card"><div class="stat-num" id="stSubmissions">—</div><div class="stat-lbl">Form Submissions</div></div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+        <h3 style="font-size:1rem;color:#0d1b2a;margin-bottom:12px">Quick Actions</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="showSec('upcoming');toggleAddPanel('addUpcomingPanel')">+ Add Upcoming Event</button>
+          <button class="btn btn-ghost btn-sm" onclick="showSec('past');toggleAddPanel('addPastPanel')">+ Add Past Event</button>
+          <button class="btn btn-ghost btn-sm" onclick="showSec('gallery')">Upload to Gallery</button>
+          <button class="btn btn-ghost btn-sm" onclick="showSec('submissions')">View Submissions</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPCOMING EVENTS -->
+    <div class="sec" id="secUpcoming">
+      <div class="sec-head">
+        <h2>Upcoming Events</h2>
+        <button class="btn btn-primary btn-sm" onclick="toggleAddPanel('addUpcomingPanel')">+ Add Event</button>
+      </div>
+
+      <!-- Add form -->
+      <div class="add-panel" id="addUpcomingPanel">
+        <h3>Add Upcoming Event</h3>
+        <div class="form-row">
+          <div class="field"><label>Title *</label><input id="uTitle" placeholder="Event title"/></div>
+          <div class="field"><label>Date *</label><input type="date" id="uDate"/></div>
+        </div>
+        <div class="form-row3">
+          <div class="field"><label>Start Time</label><input id="uStart" placeholder="11:00 AM"/></div>
+          <div class="field"><label>End Time</label><input id="uEnd" placeholder="12:00 PM"/></div>
+          <div class="field"><label>Mode</label>
+            <select id="uMode"><option>In-person only</option><option>Virtual only</option><option>Hybrid</option></select>
+          </div>
+        </div>
+        <div class="field"><label>Location / Venue</label><input id="uLoc" placeholder="MIT MAHE, Bangalore"/></div>
+        <div class="form-row">
+          <div class="field"><label>Speaker Name</label><input id="uSpkName" placeholder="Speaker name"/></div>
+          <div class="field"><label>Speaker Organization</label><input id="uSpkOrg" placeholder="Organization"/></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Host Name</label><input id="uHostName" placeholder="Host name"/></div>
+          <div class="field"><label>Host Organization</label><input id="uHostOrg" placeholder="Organization"/></div>
+        </div>
+        <div class="field"><label>Description</label><textarea id="uDesc" placeholder="Brief description of the event..."></textarea></div>
+        <div class="form-actions">
+          <button class="btn btn-success" onclick="addEvent('upcoming')">Save Event</button>
+          <button class="btn btn-ghost" onclick="toggleAddPanel('addUpcomingPanel')">Cancel</button>
+        </div>
+      </div>
+
+      <div id="upcomingList"></div>
+    </div>
+
+    <!-- PAST EVENTS -->
+    <div class="sec" id="secPast">
+      <div class="sec-head">
+        <h2>Past Events</h2>
+        <button class="btn btn-primary btn-sm" onclick="toggleAddPanel('addPastPanel')">+ Add Event</button>
+      </div>
+
+      <div class="add-panel" id="addPastPanel">
+        <h3>Add Past Event</h3>
+        <div class="form-row">
+          <div class="field"><label>Title *</label><input id="pTitle" placeholder="Event title"/></div>
+          <div class="field"><label>Date *</label><input type="date" id="pDate"/></div>
+        </div>
+        <div class="form-row3">
+          <div class="field"><label>Start Time</label><input id="pStart" placeholder="10:00 AM"/></div>
+          <div class="field"><label>End Time</label><input id="pEnd" placeholder="12:00 PM"/></div>
+          <div class="field"><label>Mode</label>
+            <select id="pMode"><option>In-person only</option><option>Virtual only</option><option>Hybrid</option></select>
+          </div>
+        </div>
+        <div class="field"><label>Location / Venue</label><input id="pLoc" placeholder="Venue"/></div>
+        <div class="form-row">
+          <div class="field"><label>Speaker Name</label><input id="pSpkName"/></div>
+          <div class="field"><label>Speaker Organization</label><input id="pSpkOrg"/></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Host Name</label><input id="pHostName"/></div>
+          <div class="field"><label>Host Organization</label><input id="pHostOrg"/></div>
+        </div>
+        <div class="field"><label>Description</label><textarea id="pDesc" placeholder="Brief description..."></textarea></div>
+        <div class="form-actions">
+          <button class="btn btn-success" onclick="addEvent('past')">Save Event</button>
+          <button class="btn btn-ghost" onclick="toggleAddPanel('addPastPanel')">Cancel</button>
+        </div>
+      </div>
+
+      <div id="pastList"></div>
+    </div>
+
+    <!-- GALLERY -->
+    <div class="sec" id="secGallery">
+      <div class="sec-head">
+        <h2>Photo Gallery</h2>
+        <span class="text-sm" id="galleryCount"></span>
+      </div>
+      <div class="upload-zone" id="galleryUploadZone">
+        <input type="file" id="galleryFileInput" accept="image/*" multiple onchange="uploadGalleryPhotos(this.files)"/>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Click or drag &amp; drop images to upload</p>
+        <div class="accepted">PNG, JPG, WEBP accepted • Multiple files supported</div>
+      </div>
+      <div class="photo-grid" id="galleryGrid"></div>
+    </div>
+
+    <!-- FORM SUBMISSIONS -->
+    <div class="sec" id="secSubmissions">
+      <div class="sec-head">
+        <h2>Form Submissions</h2>
+        <span class="text-sm" id="subCount"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Type</th><th>Name</th><th>Email</th>
+              <th>Affiliation / Role</th><th>Interests / Message</th><th>ACM #</th>
+            </tr>
+          </thead>
+          <tbody id="submissionsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ADMIN SETTINGS -->
+    <div class="sec" id="secAdmins">
+      <div class="sec-head">
+        <h2>Admin Settings</h2>
+      </div>
+
+      <!-- All admins -->
+      <div style="background:#fff;border-radius:12px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:18px">
+        <h3 style="font-size:1rem;color:#0d1b2a;margin-bottom:14px">All Administrators</h3>
+        <div id="adminsList"></div>
+      </div>
+
+      <!-- Create admin -->
+      <div style="background:#fff;border-radius:12px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:18px">
+        <h3 style="font-size:1rem;color:#0d1b2a;margin-bottom:14px">Create New Admin</h3>
+        <div class="form-row">
+          <div class="field"><label>Username *</label><input id="newAdminUser" placeholder="username"/></div>
+          <div class="field"><label>Password *</label><input type="password" id="newAdminPass" placeholder="min. 6 characters"/></div>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="createAdmin()">Create Admin Account</button>
+      </div>
+
+      <!-- Change password -->
+      <div style="background:#fff;border-radius:12px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:18px">
+        <h3 style="font-size:1rem;color:#0d1b2a;margin-bottom:14px">Change My Password</h3>
+        <div class="form-row">
+          <div class="field"><label>Current Password *</label><input type="password" id="cpCurrent" placeholder="Current password"/></div>
+          <div class="field"><label>New Password *</label><input type="password" id="cpNew" placeholder="New password"/></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="changePassword()">Update Password</button>
+      </div>
+
+      <!-- Delete account -->
+      <div class="danger-zone">
+        <h4>⚠ Delete My Account</h4>
+        <p>This permanently removes your admin account. You will be logged out immediately. Ensure at least one other admin exists before proceeding.</p>
+        <div class="form-row" style="max-width:400px">
+          <div class="field"><label>Confirm your password</label><input type="password" id="delConfirmPass" placeholder="Enter your password"/></div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteMyAccount()">Delete My Account</button>
+      </div>
+    </div>
+
+  </div><!-- end main-area -->
+</div><!-- end dashPage -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════
+const SUPA_URL = 'https://rfvbyguseudzomeoozmy.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdmJ5Z3VzZXVkem9tZW9vem15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjkwOTEsImV4cCI6MjA4OTI0NTA5MX0.OHQBtNbRboL5aFI7fZ-H7lP88WvaMuH-_R4fFLoK70Q';
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+const bc = dcodeIO.bcrypt;
+const BUCKET = 'acm-media';
+let currentAdmin = null;
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+async function init() {
+  // Check if first time (no admins)
+  const { data } = await db.from('admins').select('id').limit(1);
+  if (data && data.length === 0) {
+    document.getElementById('setupBox').style.display = 'block';
+  }
+  // Restore session
+  const s = localStorage.getItem('acm_admin');
+  if (s) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Date.now() - parsed.ts < 8 * 3600 * 1000) {
+        currentAdmin = parsed;
+        enterDashboard();
+        return;
+      }
+    } catch(e) {}
+  }
+}
+init();
+
+// ════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginErr');
+  err.textContent = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Signing in…';
+
+  const user = document.getElementById('lu').value.trim();
+  const pass = document.getElementById('lp').value;
+
+  try {
+    const { data, error } = await db.from('admins').select('*').eq('username', user).single();
+    if (error || !data) { err.textContent = 'Invalid username or password.'; return; }
+
+    const match = await bc.compare(pass, data.password_hash);
+    if (!match) { err.textContent = 'Invalid username or password.'; return; }
+
+    currentAdmin = { id: data.id, username: data.username, ts: Date.now() };
+    localStorage.setItem('acm_admin', JSON.stringify(currentAdmin));
+    enterDashboard();
+  } catch(ex) {
+    err.textContent = 'Connection error. Please try again.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+});
+
+async function firstTimeSetup() {
+  if (!confirm('Create initial admin: surya.rimmalapudi with default password?')) return;
+  try {
+    const hash = await bc.hash('svr9$9SVR', 10);
+    const { error } = await db.from('admins').insert([{ username: 'surya.rimmalapudi', password_hash: hash }]);
+    if (error) { alert('Error: ' + error.message); return; }
+    document.getElementById('setupBox').style.display = 'none';
+    toast('Admin account created! You can now log in.', 'success');
+  } catch(ex) {
+    alert('Setup failed: ' + ex.message);
+  }
+}
+
+function logout() {
+  localStorage.removeItem('acm_admin');
+  currentAdmin = null;
+  document.getElementById('dashPage').classList.remove('active');
+  document.getElementById('dashPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+}
+
+function enterDashboard() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('dashPage').style.display = 'flex';
+  document.getElementById('dashPage').classList.add('active');
+  document.getElementById('sbUsername').textContent = currentAdmin.username;
+  loadOverview();
+  loadEvents('upcoming');
+  loadEvents('past');
+  loadGallery();
+  loadSubmissions();
+  loadAdmins();
+}
+
+// ════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════
+function showSec(name) {
+  document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  event.currentTarget && event.currentTarget.classList.add('active');
+  // Manually set active nav item
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + name + "'")) {
+      n.classList.add('active');
+    }
+  });
+}
+
+function toggleAddPanel(id) {
+  const p = document.getElementById(id);
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ════════════════════════════════════════════════
+// OVERVIEW
+// ════════════════════════════════════════════════
+async function loadOverview() {
+  const [up, pa, ga, su] = await Promise.all([
+    db.from('events').select('id', { count: 'exact' }).eq('type', 'upcoming'),
+    db.from('events').select('id', { count: 'exact' }).eq('type', 'past'),
+    db.from('gallery_photos').select('id', { count: 'exact' }),
+    db.from('form_submissions').select('id', { count: 'exact' }),
+  ]);
+  document.getElementById('stUpcoming').textContent = up.count ?? 0;
+  document.getElementById('stPast').textContent = pa.count ?? 0;
+  document.getElementById('stGallery').textContent = ga.count ?? 0;
+  document.getElementById('stSubmissions').textContent = su.count ?? 0;
+}
+
+// ════════════════════════════════════════════════
+// EVENTS
+// ════════════════════════════════════════════════
+async function loadEvents(type) {
+  const listId = type === 'upcoming' ? 'upcomingList' : 'pastList';
+  const container = document.getElementById(listId);
+  container.innerHTML = '<div class="empty"><p>Loading…</p></div>';
+
+  const { data, error } = await db.from('events').select('*, event_photos(*)').eq('type', type).order('event_date', { ascending: type === 'upcoming' });
+  if (error || !data || data.length === 0) {
+    container.innerHTML = '<div class="empty"><p>No ' + type + ' events yet.</p></div>';
+    return;
+  }
+  container.innerHTML = data.map(ev => renderEventCard(ev)).join('');
+}
+
+function renderEventCard(ev) {
+  const dateStr = ev.event_date ? new Date(ev.event_date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : 'No date';
+  const photoCount = (ev.event_photos || []).length;
+  return `
+  <div class="event-card" id="evcard_${ev.id}">
+    <div class="event-card-head" onclick="toggleEv('${ev.id}')">
+      <div style="flex:1">
+        <div class="ec-title">${esc(ev.title)}</div>
+        <div class="ec-meta">${dateStr} • ${esc(ev.location || 'No location')} • ${photoCount} photo${photoCount !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="ec-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-sm" onclick="toggleEv('${ev.id}')">Manage</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}','${ev.type}')">Delete</button>
+      </div>
+    </div>
+    <div class="event-body" id="evbody_${ev.id}">
+      <div class="ev-tabs">
+        <div class="ev-tab active" onclick="evTab('${ev.id}','details',this)">Details</div>
+        <div class="ev-tab" onclick="evTab('${ev.id}','photos',this)">Photos</div>
+        <div class="ev-tab" onclick="evTab('${ev.id}','article',this)">Article</div>
+      </div>
+
+      <!-- DETAILS TAB -->
+      <div class="ev-tab-pane active" id="evtab_${ev.id}_details">
+        <div class="form-row">
+          <div class="field"><label>Title</label><input id="ed_title_${ev.id}" value="${esc(ev.title)}"/></div>
+          <div class="field"><label>Date</label><input type="date" id="ed_date_${ev.id}" value="${ev.event_date || ''}"/></div>
+        </div>
+        <div class="form-row3">
+          <div class="field"><label>Start Time</label><input id="ed_start_${ev.id}" value="${esc(ev.start_time)}"/></div>
+          <div class="field"><label>End Time</label><input id="ed_end_${ev.id}" value="${esc(ev.end_time)}"/></div>
+          <div class="field"><label>Mode</label>
+            <select id="ed_mode_${ev.id}">
+              <option ${ev.mode === 'In-person only' ? 'selected' : ''}>In-person only</option>
+              <option ${ev.mode === 'Virtual only' ? 'selected' : ''}>Virtual only</option>
+              <option ${ev.mode === 'Hybrid' ? 'selected' : ''}>Hybrid</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Location</label><input id="ed_loc_${ev.id}" value="${esc(ev.location)}"/></div>
+        <div class="form-row">
+          <div class="field"><label>Speaker Name</label><input id="ed_spkname_${ev.id}" value="${esc(ev.speaker_name)}"/></div>
+          <div class="field"><label>Speaker Org</label><input id="ed_spkorg_${ev.id}" value="${esc(ev.speaker_org)}"/></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Host Name</label><input id="ed_hostname_${ev.id}" value="${esc(ev.host_name)}"/></div>
+          <div class="field"><label>Host Org</label><input id="ed_hostorg_${ev.id}" value="${esc(ev.host_org)}"/></div>
+        </div>
+        <div class="field"><label>Description</label><textarea id="ed_desc_${ev.id}">${esc(ev.description)}</textarea></div>
+        <div class="form-actions">
+          <button class="btn btn-success btn-sm" onclick="saveEventDetails('${ev.id}','${ev.type}')">Save Details</button>
+        </div>
+      </div>
+
+      <!-- PHOTOS TAB -->
+      <div class="ev-tab-pane" id="evtab_${ev.id}_photos">
+        <div class="upload-zone" style="margin-top:0">
+          <input type="file" accept="image/*" multiple onchange="uploadEventPhotos('${ev.id}', this.files)"/>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Upload photos for this event</p>
+        </div>
+        <div class="photo-grid" id="evphotos_${ev.id}">
+          ${(ev.event_photos || []).map(p => `
+            <div class="photo-thumb" id="ephumb_${p.id}">
+              <img src="${p.url}" alt="Event photo" loading="lazy"/>
+              <button class="photo-del" onclick="deleteEventPhoto('${p.id}','${p.storage_path}','${ev.id}','${ev.type}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- ARTICLE TAB -->
+      <div class="ev-tab-pane" id="evtab_${ev.id}_article">
+        <div class="field">
+          <label>Article / Write-up</label>
+          <textarea id="ed_article_${ev.id}" style="min-height:200px">${esc(ev.article_text)}</textarea>
+          <div class="hint">This article text will appear on the public events page below the event details.</div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-success btn-sm" onclick="saveArticle('${ev.id}','${ev.type}')">Save Article</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleEv(id) {
+  const body = document.getElementById('evbody_' + id);
+  body.classList.toggle('open');
+}
+
+function evTab(evId, tabName, el) {
+  const body = document.getElementById('evbody_' + evId);
+  body.querySelectorAll('.ev-tab').forEach(t => t.classList.remove('active'));
+  body.querySelectorAll('.ev-tab-pane').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('evtab_' + evId + '_' + tabName).classList.add('active');
+}
+
+async function addEvent(type) {
+  const p = type === 'upcoming' ? 'u' : 'p';
+  const title = document.getElementById(p + 'Title').value.trim();
+  if (!title) { toast('Title is required', 'error'); return; }
+  const payload = {
+    type,
+    title,
+    event_date:   document.getElementById(p + 'Date').value || null,
+    start_time:   document.getElementById(p + 'Start').value,
+    end_time:     document.getElementById(p + 'End').value,
+    mode:         document.getElementById(p + 'Mode').value,
+    location:     document.getElementById(p + 'Loc').value,
+    speaker_name: document.getElementById(p + 'SpkName').value,
+    speaker_org:  document.getElementById(p + 'SpkOrg').value,
+    host_name:    document.getElementById(p + 'HostName').value,
+    host_org:     document.getElementById(p + 'HostOrg').value,
+    description:  document.getElementById(p + 'Desc').value,
+  };
+  const { error } = await db.from('events').insert([payload]);
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast('Event added!', 'success');
+  toggleAddPanel('add' + (type === 'upcoming' ? 'Upcoming' : 'Past') + 'Panel');
+  // Clear fields
+  ['Title','Date','Start','End','Loc','SpkName','SpkOrg','HostName','HostOrg','Desc'].forEach(f => { const el = document.getElementById(p+f); if(el) el.value = ''; });
+  await loadEvents(type);
+  await loadOverview();
+}
+
+async function saveEventDetails(id, type) {
+  const updates = {
+    title:        document.getElementById('ed_title_' + id).value.trim(),
+    event_date:   document.getElementById('ed_date_' + id).value || null,
+    start_time:   document.getElementById('ed_start_' + id).value,
+    end_time:     document.getElementById('ed_end_' + id).value,
+    mode:         document.getElementById('ed_mode_' + id).value,
+    location:     document.getElementById('ed_loc_' + id).value,
+    speaker_name: document.getElementById('ed_spkname_' + id).value,
+    speaker_org:  document.getElementById('ed_spkorg_' + id).value,
+    host_name:    document.getElementById('ed_hostname_' + id).value,
+    host_org:     document.getElementById('ed_hostorg_' + id).value,
+    description:  document.getElementById('ed_desc_' + id).value,
+  };
+  const { error } = await db.from('events').update(updates).eq('id', id);
+  if (error) { toast('Save failed: ' + error.message, 'error'); return; }
+  toast('Details saved!', 'success');
+  await loadEvents(type);
+}
+
+async function saveArticle(id, type) {
+  const text = document.getElementById('ed_article_' + id).value;
+  const { error } = await db.from('events').update({ article_text: text }).eq('id', id);
+  if (error) { toast('Save failed: ' + error.message, 'error'); return; }
+  toast('Article saved!', 'success');
+}
+
+async function deleteEvent(id, type) {
+  if (!confirm('Delete this event and all its photos? This cannot be undone.')) return;
+  const { error } = await db.from('events').delete().eq('id', id);
+  if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
+  document.getElementById('evcard_' + id)?.remove();
+  toast('Event deleted.', 'success');
+  await loadOverview();
+}
+
+// ════════════════════════════════════════════════
+// EVENT PHOTOS
+// ════════════════════════════════════════════════
+async function uploadEventPhotos(eventId, files) {
+  if (!files || files.length === 0) return;
+  toast('Uploading ' + files.length + ' photo(s)…');
+  for (const file of files) {
+    const path = 'events/' + eventId + '/' + Date.now() + '_' + file.name.replace(/\s/g,'_');
+    const { data: upData, error: upErr } = await db.storage.from(BUCKET).upload(path, file, { upsert: true });
+    if (upErr) { toast('Upload failed: ' + upErr.message, 'error'); continue; }
+    const { data: { publicUrl } } = db.storage.from(BUCKET).getPublicUrl(path);
+    const { error: dbErr } = await db.from('event_photos').insert([{ event_id: eventId, url: publicUrl, storage_path: path }]);
+    if (dbErr) { toast('DB error: ' + dbErr.message, 'error'); continue; }
+    // Add to grid immediately
+    const grid = document.getElementById('evphotos_' + eventId);
+    if (grid) {
+      const photoId = 'temp_' + Date.now();
+      grid.insertAdjacentHTML('beforeend', `
+        <div class="photo-thumb" id="ephumb_${photoId}">
+          <img src="${publicUrl}" alt="Event photo"/>
+          <button class="photo-del" onclick="deleteEventPhoto('${photoId}','${path}','${eventId}','')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>`);
+    }
+  }
+  toast('Photos uploaded!', 'success');
+}
+
+async function deleteEventPhoto(photoId, storagePath, eventId, type) {
+  if (!confirm('Remove this photo?')) return;
+  if (storagePath) await db.storage.from(BUCKET).remove([storagePath]);
+  await db.from('event_photos').delete().eq('id', photoId);
+  document.getElementById('ephumb_' + photoId)?.remove();
+  toast('Photo removed.', 'success');
+}
+
+// ════════════════════════════════════════════════
+// GALLERY
+// ════════════════════════════════════════════════
+async function loadGallery() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '<div style="padding:20px;color:#94a3b8">Loading…</div>';
+  const { data, count } = await db.from('gallery_photos').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+  document.getElementById('galleryCount').textContent = (count || 0) + ' photo(s)';
+  if (!data || data.length === 0) { grid.innerHTML = '<div class="empty"><p>No photos yet. Upload some above.</p></div>'; return; }
+  grid.innerHTML = data.map(p => `
+    <div class="photo-thumb" id="gphumb_${p.id}">
+      <img src="${p.url}" alt="${esc(p.caption)}" loading="lazy"/>
+      <button class="photo-del" onclick="deleteGalleryPhoto('${p.id}','${p.storage_path}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+async function uploadGalleryPhotos(files) {
+  if (!files || files.length === 0) return;
+  toast('Uploading ' + files.length + ' photo(s)…');
+  const grid = document.getElementById('galleryGrid');
+  for (const file of files) {
+    const path = 'gallery/' + Date.now() + '_' + file.name.replace(/\s/g,'_');
+    const { error: upErr } = await db.storage.from(BUCKET).upload(path, file, { upsert: true });
+    if (upErr) { toast('Upload failed: ' + upErr.message, 'error'); continue; }
+    const { data: { publicUrl } } = db.storage.from(BUCKET).getPublicUrl(path);
+    const { data: row, error: dbErr } = await db.from('gallery_photos').insert([{ url: publicUrl, storage_path: path }]).select().single();
+    if (dbErr) { toast('DB error: ' + dbErr.message, 'error'); continue; }
+    // Prepend to grid
+    const html = `<div class="photo-thumb" id="gphumb_${row.id}">
+      <img src="${publicUrl}" loading="lazy"/>
+      <button class="photo-del" onclick="deleteGalleryPhoto('${row.id}','${path}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+    grid.insertAdjacentHTML('afterbegin', html);
+  }
+  toast('Gallery updated!', 'success');
+  await loadOverview();
+  document.getElementById('galleryCount').textContent = grid.querySelectorAll('.photo-thumb').length + ' photo(s)';
+}
+
+async function deleteGalleryPhoto(id, storagePath) {
+  if (!confirm('Delete this photo?')) return;
+  if (storagePath) await db.storage.from(BUCKET).remove([storagePath]);
+  await db.from('gallery_photos').delete().eq('id', id);
+  document.getElementById('gphumb_' + id)?.remove();
+  toast('Photo deleted.', 'success');
+  await loadOverview();
+}
+
+// ════════════════════════════════════════════════
+// SUBMISSIONS
+// ════════════════════════════════════════════════
+async function loadSubmissions() {
+  const tbody = document.getElementById('submissionsBody');
+  const { data, count } = await db.from('form_submissions').select('*', { count: 'exact' }).order('submitted_at', { ascending: false });
+  document.getElementById('subCount').textContent = (count || 0) + ' submission(s)';
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:32px">No submissions yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(s => {
+    const d = new Date(s.submitted_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    const name = s.type === 'membership' ? ((s.first_name || '') + ' ' + (s.last_name || '')).trim() : (s.first_name || s.last_name || '—');
+    const detail = s.type === 'membership' ? ((s.affiliation || '') + (s.role ? ' · ' + s.role : '')) : (s.subject || '');
+    const msg = s.type === 'membership' ? (s.interests || '—') : (s.message || '—');
+    return `<tr>
+      <td style="white-space:nowrap">${d}</td>
+      <td><span class="badge badge-${s.type}">${s.type}</span></td>
+      <td>${esc(name) || '—'}</td>
+      <td style="color:#0073b7">${esc(s.email)}</td>
+      <td class="td-wrap">${esc(detail) || '—'}</td>
+      <td class="td-wrap" style="max-width:200px">${esc(msg)}</td>
+      <td>${esc(s.acm_number) || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════
+// ADMIN MANAGEMENT
+// ════════════════════════════════════════════════
+async function loadAdmins() {
+  const container = document.getElementById('adminsList');
+  const { data } = await db.from('admins').select('id, username, created_at, created_by').order('created_at');
+  if (!data || data.length === 0) { container.innerHTML = '<div class="empty"><p>No admins found.</p></div>'; return; }
+  container.innerHTML = data.map(a => {
+    const isMe = currentAdmin && a.id === currentAdmin.id;
+    const d = new Date(a.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    return `<div class="admin-card">
+      <div>
+        <div class="uname">${esc(a.username)}${isMe ? '<span class="me-badge">You</span>' : ''}</div>
+        <div class="udate">Created ${d}${a.created_by ? ' by ' + esc(a.created_by) : ''}</div>
+      </div>
+      ${!isMe ? `<button class="btn btn-danger btn-sm" onclick="deleteAdmin('${a.id}','${esc(a.username)}')">Remove</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function createAdmin() {
+  const username = document.getElementById('newAdminUser').value.trim();
+  const password = document.getElementById('newAdminPass').value;
+  if (!username || !password) { toast('Username and password are required.', 'error'); return; }
+  if (password.length < 6) { toast('Password must be at least 6 characters.', 'error'); return; }
+  const hash = await bc.hash(password, 10);
+  const { error } = await db.from('admins').insert([{ username, password_hash: hash, created_by: currentAdmin.username }]);
+  if (error) { toast('Error: ' + (error.message.includes('unique') ? 'Username already exists.' : error.message), 'error'); return; }
+  document.getElementById('newAdminUser').value = '';
+  document.getElementById('newAdminPass').value = '';
+  toast('Admin "' + username + '" created!', 'success');
+  await loadAdmins();
+}
+
+async function changePassword() {
+  const current = document.getElementById('cpCurrent').value;
+  const newPw   = document.getElementById('cpNew').value;
+  if (!current || !newPw) { toast('Both fields are required.', 'error'); return; }
+  if (newPw.length < 6)   { toast('New password must be at least 6 characters.', 'error'); return; }
+  // Verify current password
+  const { data } = await db.from('admins').select('password_hash').eq('id', currentAdmin.id).single();
+  const match = await bc.compare(current, data.password_hash);
+  if (!match) { toast('Current password is incorrect.', 'error'); return; }
+  const hash = await bc.hash(newPw, 10);
+  const { error } = await db.from('admins').update({ password_hash: hash }).eq('id', currentAdmin.id);
+  if (error) { toast('Update failed: ' + error.message, 'error'); return; }
+  document.getElementById('cpCurrent').value = '';
+  document.getElementById('cpNew').value = '';
+  toast('Password updated successfully!', 'success');
+}
+
+async function deleteAdmin(id, username) {
+  if (!confirm('Remove admin "' + username + '"? They will lose access immediately.')) return;
+  const { error } = await db.from('admins').delete().eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast('Admin "' + username + '" removed.', 'success');
+  await loadAdmins();
+}
+
+async function deleteMyAccount() {
+  const confirmPass = document.getElementById('delConfirmPass').value;
+  if (!confirmPass) { toast('Enter your password to confirm.', 'error'); return; }
+  // Check there are other admins
+  const { data: all } = await db.from('admins').select('id');
+  if (!all || all.length <= 1) { toast('Cannot delete: you are the only admin. Create another admin first.', 'error'); return; }
+  // Verify password
+  const { data } = await db.from('admins').select('password_hash').eq('id', currentAdmin.id).single();
+  const match = await bc.compare(confirmPass, data.password_hash);
+  if (!match) { toast('Incorrect password.', 'error'); return; }
+  if (!confirm('This will permanently delete your account. Are you sure?')) return;
+  const { error } = await db.from('admins').delete().eq('id', currentAdmin.id);
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast('Account deleted. Goodbye!', 'success');
+  setTimeout(logout, 1500);
+}
+
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>

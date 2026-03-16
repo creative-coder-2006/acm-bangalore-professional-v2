@@ -448,6 +448,7 @@
           <a href="#">Terms of Service</a>
           <a href="#">Code of Ethics</a>
           <a href="https://www.acm.org/" target="_blank" rel="noopener">acm.org</a>
+          <a href="admin.html" style="opacity:0.45; font-size:0.75rem;">Admin</a>
         </div>
       </div>
     </div>
@@ -456,6 +457,7 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     // Nav toggle
     const toggle = document.getElementById('navToggle');
@@ -470,11 +472,13 @@
       setTimeout(() => t.classList.remove('show'), duration);
     }
 
-    // Membership form submission (secure mailto — email not in source)
-    document.getElementById('joinForm').addEventListener('submit', function(e) {
-      e.preventDefault();
+    // ─── SUPABASE ──────────────────────────────────────────────────────────
+    const SUPABASE_URL = 'https://rfvbyguseudzomeoozmy.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdmJ5Z3VzZXVkem9tZW9vem15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjkwOTEsImV4cCI6MjA4OTI0NTA5MX0.OHQBtNbRboL5aFI7fZ-H7lP88WvaMuH-_R4fFLoK70Q';
 
-      // Validate required fields
+    // ─── MEMBERSHIP FORM ──────────────────────────────────────────────────
+    document.getElementById('joinForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
       const required = ['firstName','lastName','email','affiliation','role','interests'];
       let valid = true;
       required.forEach(id => {
@@ -484,35 +488,37 @@
       });
       if (!valid) { showToast('⚠ Please fill in all required fields.', 3500); return; }
 
-      // Build email body from form values
-      const data = {
-        'First Name':             document.getElementById('firstName').value.trim(),
-        'Last Name':              document.getElementById('lastName').value.trim(),
-        'Email':                  document.getElementById('email').value.trim(),
-        'Affiliation':            document.getElementById('affiliation').value.trim(),
-        'Role / Position':        document.getElementById('role').value.trim(),
-        'Professional Interests': document.getElementById('interests').value.trim(),
-        'ACM Membership Number':  document.getElementById('acmNumber').value.trim() || 'N/A',
-      };
+      const btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
 
-      const body = Object.entries(data)
-        .map(([k, v]) => k + ': ' + v)
-        .join('\n');
-
-      // Obfuscated recipient — assembled at runtime to prevent harvesting
-      const parts = ['ACM-BLR-OFFICERS', 'listserv', 'acm', 'org'];
-      const recipient = parts[0] + '@' + parts[1] + '.' + parts[2] + '.' + parts[3];
-      const subject   = encodeURIComponent('New Membership Application — ' + data['First Name'] + ' ' + data['Last Name']);
-      const mailBody  = encodeURIComponent('Dear ACM Bangalore Officers,\n\nA new membership application has been submitted:\n\n' + body + '\n\nKind regards,\nACM Bangalore Chapter Website');
-
-      window.location.href = 'mailto:' + recipient + '?subject=' + subject + '&body=' + mailBody;
-      showToast('✓ Opening your email client to send the application…');
+      try {
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const { error } = await sb.from('form_submissions').insert({
+          type:        'membership',
+          first_name:  document.getElementById('firstName').value.trim(),
+          last_name:   document.getElementById('lastName').value.trim(),
+          email:       document.getElementById('email').value.trim(),
+          affiliation: document.getElementById('affiliation').value.trim(),
+          role:        document.getElementById('role').value.trim(),
+          interests:   document.getElementById('interests').value.trim(),
+          acm_number:  document.getElementById('acmNumber').value.trim() || null
+        });
+        if (error) throw error;
+        showToast('✓ Application submitted! We will be in touch soon.', 5000);
+        this.reset();
+      } catch (err) {
+        console.error(err);
+        showToast('⚠ Submission failed. Please try again or email us directly.', 5000);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Application`;
+      }
     });
 
-    // Contact form submission
-    document.getElementById('contactForm').addEventListener('submit', function(e) {
+    // ─── CONTACT FORM ─────────────────────────────────────────────────────
+    document.getElementById('contactForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-
       const required = ['cName','cEmail','cSubject','cMessage'];
       let valid = true;
       required.forEach(id => {
@@ -522,20 +528,35 @@
       });
       if (!valid) { showToast('⚠ Please fill in all required fields.', 3500); return; }
 
+      const btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+
       const name    = document.getElementById('cName').value.trim();
       const email   = document.getElementById('cEmail').value.trim();
       const subject = document.getElementById('cSubject').value.trim();
       const message = document.getElementById('cMessage').value.trim();
 
-      const body = 'Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + message;
-
-      const parts = ['ACM-BLR-OFFICERS', 'listserv', 'acm', 'org'];
-      const recipient = parts[0] + '@' + parts[1] + '.' + parts[2] + '.' + parts[3];
-      const mailSubject = encodeURIComponent('[ACM Bangalore] ' + subject);
-      const mailBody    = encodeURIComponent(body);
-
-      window.location.href = 'mailto:' + recipient + '?subject=' + mailSubject + '&body=' + mailBody;
-      showToast('✓ Opening your email client…');
+      try {
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const { error } = await sb.from('form_submissions').insert({
+          type:       'contact',
+          first_name: name.split(' ')[0] || name,
+          last_name:  name.split(' ').slice(1).join(' ') || '',
+          email:      email,
+          subject:    subject,
+          message:    message
+        });
+        if (error) throw error;
+        showToast('✓ Message sent! We typically respond within 2–3 business days.', 5000);
+        this.reset();
+      } catch (err) {
+        console.error(err);
+        showToast('⚠ Could not send message. Please try again.', 5000);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Message`;
+      }
     });
   </script>
 </body>
