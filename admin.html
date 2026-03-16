@@ -193,7 +193,7 @@ hr.divider{border:none;border-top:1px solid #e2e8f0;margin:18px 0}
 
       <!-- First-time setup (shown only when no admins exist) -->
       <div class="setup-box" id="setupBox" style="display:none">
-        <p>No admin account found. Click below to create the initial admin account.</p>
+        <p id="setupMsg">No admin account found. Click below to create the initial admin account (surya.rimmalapudi).</p>
         <button class="btn btn-success btn-sm" onclick="firstTimeSetup()">Initialize Admin Account</button>
       </div>
     </div>
@@ -454,10 +454,14 @@ let currentAdmin = null;
 // INIT
 // ════════════════════════════════════════════════
 async function init() {
-  // Check if first time (no admins)
-  const { data } = await db.from('admins').select('id').limit(1);
-  if (data && data.length === 0) {
+  // Check if first time (no admins, or table doesn't exist yet)
+  const { data, error } = await db.from('admins').select('id').limit(1);
+  if (error || !data || data.length === 0) {
     document.getElementById('setupBox').style.display = 'block';
+    if (error) {
+      document.getElementById('setupMsg').textContent =
+        'Database tables not found. Please run supabase-setup.sql in your Supabase SQL Editor first, then click the button below.';
+    }
   }
   // Restore session
   const s = localStorage.getItem('acm_admin');
@@ -511,7 +515,10 @@ async function firstTimeSetup() {
   try {
     const hash = await bc.hash('svr9$9SVR', 10);
     const { error } = await db.from('admins').insert([{ username: 'surya.rimmalapudi', password_hash: hash }]);
-    if (error) { alert('Error: ' + error.message); return; }
+    if (error) {
+      alert('Setup failed: ' + error.message + '\n\nMake sure you have run supabase-setup.sql in the Supabase SQL Editor first.');
+      return;
+    }
     document.getElementById('setupBox').style.display = 'none';
     toast('Admin account created! You can now log in.', 'success');
   } catch(ex) {
