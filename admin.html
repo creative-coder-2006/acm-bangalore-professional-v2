@@ -347,6 +347,15 @@ hr.divider{border:none;border-top:1px solid #e2e8f0;margin:18px 0}
           <div class="field"><label>Host Organization</label><input id="pHostOrg"/></div>
         </div>
         <div class="field"><label>Description</label><textarea id="pDesc" placeholder="Brief description..."></textarea></div>
+        <div class="field">
+          <label>Event Photos <span style="font-weight:400;color:#94a3b8">(optional — you can also add these later)</span></label>
+          <div class="upload-zone" style="margin:0;padding:18px 20px">
+            <input type="file" accept="image/*" multiple id="pPhotos" onchange="previewPastPhotos(this.files)"/>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Click or drag photos here</p>
+          </div>
+          <div id="pPhotosPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;"></div>
+        </div>
         <div class="form-actions">
           <button class="btn btn-success" onclick="addEvent('past')">Save Event</button>
           <button class="btn btn-ghost" onclick="toggleAddPanel('addPastPanel')">Cancel</button>
@@ -719,14 +728,48 @@ async function addEvent(type) {
     host_org:     document.getElementById(p + 'HostOrg').value,
     description:  document.getElementById(p + 'Desc').value,
   };
-  const { error } = await db.from('events').insert([payload]);
+  // Insert and get back the new event's ID so we can attach photos
+  const { data: inserted, error } = await db.from('events').insert([payload]).select().single();
   if (error) { toast('Error: ' + error.message, 'error'); return; }
-  toast('Event added!', 'success');
+
+  // Upload photos if any were selected (past events only, but works for both)
+  const photoInput = document.getElementById(p + 'Photos');
+  if (photoInput && photoInput.files.length > 0) {
+    toast('Event saved! Uploading ' + photoInput.files.length + ' photo(s)…');
+    await uploadEventPhotos(inserted.id, photoInput.files);
+    photoInput.value = '';
+    const preview = document.getElementById(p + 'PhotosPreview');
+    if (preview) preview.innerHTML = '';
+  } else {
+    toast('Event added!', 'success');
+  }
+
   toggleAddPanel('add' + (type === 'upcoming' ? 'Upcoming' : 'Past') + 'Panel');
   // Clear fields
   ['Title','Date','Start','End','Loc','SpkName','SpkOrg','HostName','HostOrg','Desc'].forEach(f => { const el = document.getElementById(p+f); if(el) el.value = ''; });
   await loadEvents(type);
   await loadOverview();
+}
+
+// Preview thumbnails for photos selected in the Add Past Event form
+function previewPastPhotos(files) {
+  const preview = document.getElementById('pPhotosPreview');
+  if (!preview) return;
+  preview.innerHTML = '';
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.cssText = 'width:80px;height:60px;object-fit:cover;border-radius:6px;border:2px solid #e2e8f0;';
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+  const label = document.createElement('span');
+  label.textContent = files.length + ' photo' + (files.length !== 1 ? 's' : '') + ' selected';
+  label.style.cssText = 'align-self:center;font-size:0.82rem;color:#64748b;margin-left:4px;';
+  preview.appendChild(label);
 }
 
 async function saveEventDetails(id, type) {
